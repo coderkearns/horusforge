@@ -1,0 +1,84 @@
+.boot-header {
+  font-size: clamp(1.4rem, 3vw, 2.4rem);
+  margin: 0 0 0.5rem;
+  letter-spacing: 0.05em;
+}
+
+.boot-code {
+  margin-bottom: 0.7rem;
+}
+
+.mono-block {
+  font-family: var(--mono);
+  white-space: pre-wrap;
+  margin: 0;
+}
+
+.nav-btn {
+  margin-bottom: 0;
+  text-align: left;
+}
+
+.editor-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.7rem;
+  align-items: center;
+  margin-bottom: 0.8rem;
+}
+
+.helper h3,
+.editor h3,
+.sidebar h3 {
+  margin-top: 0;
+}
+
+.mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.mode-toggle input {
+  width: auto;
+}
+
+.raw-editor {
+  margin-top: 0.8rem;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.two-col {
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+.metrics {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin: 0.5rem 0 0.8rem;
+}
+
+.metric {
+  border-radius: 0;
+  border: 1px solid #2d4247;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.82rem;
+}
+
+.screen-title {
+  margin: 0 0 0.5rem;
+}
+
+.controls-row {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.controls-row .nav-btn {
+  width: auto;
+}

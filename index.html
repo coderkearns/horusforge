@@ -1,660 +1,292 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HORUS FORGE // LCP EDITOR</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <style>
-        :root {
-            --horus-green: #00ff41;
-            --horus-dim: #008F11;
-            --horus-bg: #0d0d0d;
-            --horus-text-shadow: 0 0 5px rgba(0, 255, 65, 0.5);
-            --border-style: 2px solid var(--horus-green);
-        }
-
-        body {
-            background-color: var(--horus-bg);
-            color: var(--horus-green);
-            font-family: 'Courier New', Courier, monospace;
-            margin: 0;
-            padding: 0;
-            height: 100vh;
-            width: 100vw;
-            box-sizing: border-box;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            position: relative;
-        }
-
-        /* Scanline effect */
-        body::after {
-            content: " ";
-            display: block;
-            position: absolute;
-            top: 0; left: 0; bottom: 0; right: 0;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-            z-index: 10;
-            background-size: 100% 2px, 3px 100%;
-            pointer-events: none;
-        }
-
-        /* Header */
-        .banner-container {
-            border-bottom: var(--border-style);
-            padding: 10px;
-            text-align: center;
-            text-shadow: var(--horus-text-shadow);
-            flex-shrink: 0;
-            z-index: 5;
-            background: var(--horus-bg);
-        }
-
-        /* Main Layout */
-        .main-interface {
-            display: flex;
-            flex-grow: 1;
-            overflow: hidden;
-            z-index: 5;
-            padding: 20px;
-            gap: 20px;
-        }
-
-        /* Left Panel (Content) */
-        .content-panel {
-            border: var(--border-style);
-            flex: 3;
-            padding: 15px;
-            display: flex;
-            flex-direction: column;
-            overflow-y: auto;
-            position: relative;
-            background: rgba(13, 13, 13, 0.8);
-            backdrop-filter: blur(2px);
-        }
-
-        /* Right Panel (Sidebar) */
-        .sidebar-panel {
-            border: var(--border-style);
-            flex: 1;
-            min-width: 250px;
-            max-width: 350px;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            background: rgba(13, 13, 13, 0.8);
-        }
-
-        /* Common Elements */
-        h1, h2, h3, h4 { margin: 0 0 10px 0; text-transform: uppercase; font-weight: normal; }
-        
-        button {
-            background: transparent;
-            border: var(--border-style);
-            color: var(--horus-green);
-            font-family: inherit;
-            font-size: 1em;
-            padding: 10px;
-            margin-bottom: 10px;
-            cursor: pointer;
-            text-align: center;
-            text-transform: uppercase;
-            transition: all 0.1s;
-            width: 100%;
-        }
-
-        button:hover {
-            background-color: var(--horus-green);
-            color: var(--horus-bg);
-            box-shadow: 0 0 10px var(--horus-green);
-        }
-
-        button.cancel {
-            border-style: dashed;
-            opacity: 0.8;
-        }
-
-        button.delete {
-            border-color: #ff3333;
-            color: #ff3333;
-        }
-        button.delete:hover {
-            background-color: #ff3333;
-            color: black;
-            box-shadow: 0 0 10px #ff3333;
-        }
-
-        /* Scrollbar */
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: var(--horus-bg); }
-        ::-webkit-scrollbar-thumb { background: var(--horus-dim); border: 1px solid var(--horus-green); }
-
-        /* Grid & Lists */
-        .grid-menu {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            gap: 10px;
-        }
-
-        .list-view-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border: 1px solid var(--horus-dim);
-            padding: 10px;
-            margin-bottom: 5px;
-            cursor: pointer;
-            background: rgba(0,0,0,0.3);
-        }
-        .list-view-item:hover {
-            background-color: rgba(0, 255, 65, 0.1);
-            border-color: var(--horus-green);
-        }
-
-        /* Form Styling */
-        .form-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; color: var(--horus-dim); font-size: 0.9em; }
-        
-        input[type="text"], input[type="number"], textarea, select {
-            width: 100%;
-            background: rgba(0, 20, 0, 0.6);
-            border: 1px solid var(--horus-dim);
-            color: var(--horus-green);
-            font-family: inherit;
-            padding: 10px;
-            box-sizing: border-box;
-            font-size: 1em;
-        }
-        
-        input:focus, textarea:focus, select:focus {
-            outline: none;
-            border-color: var(--horus-green);
-            box-shadow: 0 0 5px var(--horus-green);
-            background: rgba(0, 40, 0, 0.8);
-        }
-        
-        textarea { height: 100px; resize: vertical; }
-
-        .form-row { display: flex; gap: 10px; }
-        .form-row > div { flex: 1; }
-
-        .hidden { display: none !important; }
-        
-        .fabricating { animation: blink 0.5s infinite; }
-        @keyframes blink { 50% { opacity: 0; } }
-
-        /* Mobile Responsiveness */
-        @media (max-width: 768px) {
-            body { overflow-y: auto; height: auto; min-height: 100vh; }
-            .bg-logo { font-size: 6px; line-height: 6px; width: 150%; left: -25%; } /* Scale logo for mobile */
-            .banner-container pre { font-size: 6px; }
-            .main-interface { flex-direction: column; padding: 10px; }
-            .sidebar-panel { order: -1; width: 100%; max-width: none; min-width: 0; box-sizing: border-box; }
-            .content-panel { width: 100%; box-sizing: border-box; min-height: 500px; }
-            .form-row { flex-direction: column; gap: 0; }
-        }
-    </style>
-</head>
-<body>
-
-    <div class="banner-container">
-        <pre style="margin:0; font-size: 10px;">
-██╗  ██╗ ██████╗ ██████╗ ██╗   ██╗███████╗    ███████╗ ██████╗ ██████╗  ██████╗ ███████╗
-██║  ██║██╔═══██╗██╔══██╗██║   ██║██╔════╝    ██╔════╝██╔═══██╗██╔══██╗██╔════╝ ██╔════╝
-███████║██║   ██║██████╔╝██║   ██║███████╗    █████╗  ██║   ██║██████╔╝██║  ███╗█████╗  
-██╔══██║██║   ██║██╔══██╗██║   ██║╚════██║    ██╔══╝  ██║   ██║██╔══██╗██║   ██║██╔══╝  
-██║  ██║╚██████╔╝██║  ██║╚██████╔╝███████║    ██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗
-╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝</pre>
-        <div style="margin-top:5px; letter-spacing: 2px;">// OMNINET CONNECTION ESTABLISHED</div>
-    </div>
-
-    <div class="main-interface">
-        
-        <div id="app-container" class="content-panel">
-            </div>
-
-        <div class="sidebar-panel">
-            <div>
-                <h3 style="border-bottom: 1px solid var(--horus-dim); padding-bottom: 5px;">BLUEPRINT STATUS</h3>
-                <div style="margin-bottom: 15px; margin-top: 10px;">
-                    <div style="color: var(--horus-dim); font-size: 0.8em;">PKG_NAME</div>
-                    <div id="project-name" style="color: var(--horus-green); font-size: 1.2em;">[UNTITLED_PKG]</div>
-                </div>
-                <div style="font-size: 0.8em; margin-bottom: 20px;">
-                    <span style="color:var(--horus-dim)">AUTH:</span> <span id="project-author">UNKNOWN</span><br>
-                    <span style="color:var(--horus-dim)">VER:</span> <span id="project-version">0.0.1</span>
-                </div>
-            </div>
-
-            <div><pre>          ##  ####  ##          
-       #####  ####  #####       
-   ##########      ##########   
- ############################## 
-      ####################      
-         ##############         
-           ##########           
-           ##########           
-            ########            
-             #######            
-             ######             
-              #####             
-              ####              
-              ####              
-               ##               
-               ##               </pre></div>
-
-            <div>
-                <button onclick="triggerLoad()">> IMPORT .LCP</button>
-                <input type="file" id="file-upload" class="hidden" accept=".lcp,.zip" onchange="handleFileLoad(this)">
-                
-                <button onclick="saveLCP()">> EXPORT .LCP</button>
-                
-                <div id="status-msg" style="margin-top: 10px; height: 20px; font-style: italic; text-align: center; font-size: 0.9em;">
-                    READY.
-                </div>
-            </div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HORUSForge</title>
+  </head>
+  <body>
+    <div id="app" x-data="horusforgeApp()" x-init="init()" :class="`${effectsClass()} ${motionClass()} scanline app-shell`">
+      <section class="screen" x-screen="boot">
+        <div class="terminal-shell boot-wrap" role="region" aria-label="Boot sequence">
+          <h1 class="boot-header distort">HORUSFORGE // OMNINET UPLINK CONSOLE</h1>
+          <div class="boot-code terminal-block boot-feed" aria-live="polite">
+            <pre class="mono-block" x-text="bootFeed.join('\n')"></pre>
+          </div>
+          <p class="subtle" x-show="!bootCompleted">Booting uplink stream...</p>
+          <div class="actions" x-show="bootCompleted">
+            <button type="button" @click="proceedFromBoot()" :disabled="!bootCompleted">Enter Datavault</button>
+            <button type="button" @click="skipBootSequence()">Fast Uplink</button>
+          </div>
         </div>
-    </div>
+      </section>
 
-    <script>
-        // --- DATA & CONFIG ---
+      <section class="screen" x-screen="project">
+        <div class="terminal-shell screen-shell" role="region" aria-label="Project launcher">
+          <h2 class="screen-title">Datavault Root</h2>
+          <p class="subtle">Forge a new blueprint, recover from local cache, or ingest a remote .lcp feed.</p>
+          <div class="two-col section-grid">
+            <div class="terminal-section">
+              <h3>Forge New Blueprint</h3>
+              <div class="field">
+                <label for="pack-name">Pack Name</label>
+                <input id="pack-name" x-model="newPackName" @input="markDirty()" />
+              </div>
+              <div class="field">
+                <label for="id-prefix">ID Prefix</label>
+                <input id="id-prefix" x-model="newPackPrefix" @input="markDirty()" placeholder="hf" />
+              </div>
+              <div class="field">
+                <label for="starter-template">Starter Template</label>
+                <select id="starter-template" x-model="selectedTemplate">
+                  <template x-for="template in templates" :key="template.id">
+                    <option :value="template.id" x-text="template.name"></option>
+                  </template>
+                </select>
+              </div>
+              <template x-for="template in templates" :key="`template-${template.id}`">
+                <p class="subtle" x-show="template.id === selectedTemplate" x-text="template.description"></p>
+              </template>
+              <div class="actions">
+                <button type="button" @click="createNewProject()">Forge Blueprint</button>
+                <button type="button" @click="loadAutosaveProject()">Resume Cache</button>
+              </div>
+            </div>
 
-        let lcpData = {
-            manifest: { name: "New LCP", version: "0.0.1", description: "Created with HORUS FORGE", author: "Anonymous" },
-            // Categories
-            frames: [], weapons: [], systems: [], mods: [], talents: [], 
-            actions: [], backgrounds: [], core_bonuses: [], environments: [], 
-            factions: [], glossary: [], info: [], manufacturers: [], 
-            pilot_gear: [], reserves: [], rules: [], sitreps: [], 
-            skills: [], statuses: [], tables: [], tags: []
-        };
+            <div class="terminal-section">
+              <h3>Ingest External Archive</h3>
+              <div class="field">
+                <label for="local-lcp-import">Import Local .lcp or .zip</label>
+                <input id="local-lcp-import" type="file" accept=".lcp,.zip" @change="importLocalLcp($event)" />
+              </div>
+              <div class="field">
+                <label for="url-import">Import from URL</label>
+                <input id="url-import" x-model="urlImportInput" placeholder="https://example.com/my-pack.lcp" />
+              </div>
+              <div class="actions">
+                <button type="button" @click="importFromUrl()">Ingest URL</button>
+              </div>
+              <p class="subtle">If URL import fails due to CORS, download the file and import locally.</p>
+            </div>
+          </div>
+        </div>
+      </section>
 
-        // --- FORM CONFIGURATION ---
-        // This maps data fields to HTML input types for the UI generator
-        const FIELD_CONFIG = {
-            common: [
-                { key: "id", label: "INTERNAL ID (UNIQUE)", type: "text" },
-                { key: "name", label: "DISPLAY NAME", type: "text" },
-                { key: "source", label: "SOURCE BOOK/PACK", type: "text" },
-                { key: "description", label: "DESCRIPTION (HTML OK)", type: "textarea" }
-            ],
-            frames: [
-                { key: "license_level", label: "LICENSE RANK", type: "select", options: [1,2,3] },
-                { key: "mechtype", label: "CLASS (e.g. Striker)", type: "text", field: "mechtype" }, // Note: array in schema, simpler here
-                { key: "stats.size", label: "SIZE", type: "number", step: 0.5 },
-                { key: "stats.armor", label: "ARMOR", type: "number" },
-                { key: "stats.hp", label: "HP", type: "number" },
-                { key: "stats.evades", label: "EVASION", type: "number" },
-                { key: "stats.edef", label: "E-DEFENSE", type: "number" },
-                { key: "stats.heatcap", label: "HEAT CAP", type: "number" },
-                { key: "stats.sens", label: "SENSORS", type: "number" },
-                { key: "stats.speed", label: "SPEED", type: "number" },
-                { key: "stats.save", label: "SAVE TARGET", type: "number" },
-                { key: "traits", label: "TRAITS (JSON)", type: "textarea_sm", help: "Format: [{name:'', description:''}]" },
-                { key: "mounts", label: "MOUNTS (JSON)", type: "textarea_sm", help: "Format: ['Main', 'Aux/Aux', 'Heavy']" }
-            ],
-            weapons: [
-                { key: "mount", label: "MOUNT TYPE", type: "select", options: ["Auxiliary", "Main", "Heavy", "Superheavy"] },
-                { key: "type", label: "WEAPON TYPE", type: "select", options: ["Melee", "CQB", "Rifle", "Launcher", "Cannon", "Nexus"] },
-                { key: "range", label: "RANGE/THREAT (JSON)", type: "text", help: "e.g. [{'val':10, 'type':'Range'}]" },
-                { key: "damage", label: "DAMAGE (JSON)", type: "text", help: "e.g. [{'val':1, 'type':'Kinetic'}]" },
-                { key: "on_attack", label: "ON ATTACK EFFECT", type: "textarea_sm" },
-                { key: "on_hit", label: "ON HIT EFFECT", type: "textarea_sm" },
-                { key: "on_crit", label: "ON CRIT EFFECT", type: "textarea_sm" }
-            ],
-            systems: [
-                { key: "sp", label: "SP COST", type: "number" },
-                { key: "type", label: "TYPE", type: "text", placeholder: "System, Shield, AI, etc." },
-                { key: "effect", label: "ACTIVE EFFECT", type: "textarea" }
-            ],
-            talents: [
-                { key: "icon_url", label: "ICON URL", type: "text" },
-                { key: "ranks", label: "RANKS DATA (JSON)", type: "textarea", help: "Complex Object Array" }
-            ]
-        };
+      <section class="screen" x-screen="editor">
+        <div class="terminal-shell topbar" role="navigation" aria-label="Primary navigation">
+          <div class="controls-row">
+            <button type="button" class="nav-btn" @click="$changeScreen('project')">Datavault</button>
+            <button type="button" class="nav-btn" @click="$changeScreen('validate'); runValidation()">Validation Rite</button>
+            <button type="button" class="nav-btn" @click="$changeScreen('package')">Archive Ops</button>
+            <button type="button" class="nav-btn" @click="$changeScreen('settings')">Signal Settings</button>
+          </div>
+          <div class="topbar-meta">
+            <div class="badge" x-text="project.meta.title"></div>
+            <div class="subtle" x-show="lastAutosaveAt">cache sync: <span x-text="lastAutosaveAt"></span></div>
+          </div>
+        </div>
 
-        // Fallback for categories without specific fields
-        const DEFAULT_CONFIG = [];
-
-        // --- STATE ---
-        let currentView = 'menu';
-        let currentCategory = null;
-        let currentItemIndex = null;
-
-        // --- DOM ---
-        const container = document.getElementById('app-container');
-
-        // --- INIT ---
-        function init() {
-            renderMainMenu();
-            updateSidebar();
-        }
-
-        // --- RENDERERS ---
-
-        function renderMainMenu() {
-            currentView = 'menu';
-            container.innerHTML = `
-                <div style="border-bottom: var(--border-style); padding-bottom: 10px; margin-bottom: 20px;">
-                    <h2>// DATABASE ROOT</h2>
-                    <div style="color:var(--horus-dim)">SELECT DATA CATEGORY TO FORGE</div>
-                </div>
-                
-                <button onclick="renderManifestEditor()" style="margin-bottom:20px; border: 2px dashed var(--horus-green);">
-                    [ EDIT MANIFEST / SETTINGS ]
+        <div class="layout">
+          <aside class="terminal-section sidebar" role="region" aria-label="Categories">
+            <h3>Data Categories</h3>
+            <div class="field">
+              <label for="category-filter">Filter Categories</label>
+              <input id="category-filter" x-model="categoryFilter" placeholder="frames, tags, weapons..." />
+            </div>
+            <div class="category-list">
+              <template x-for="category in filteredCategories()" :key="category.key">
+                <button type="button" class="category-btn" :class="{ 'is-active': selectedCategory === category.key }" @click="selectCategory(category.key)">
+                  <span x-text="category.label"></span>
                 </button>
+              </template>
+            </div>
 
-                <div class="grid-menu" id="menu-grid"></div>
-            `;
+            <div class="section" x-show="categoryDef() && categoryDef().kind === 'array'">
+              <h3>Blueprint Entries</h3>
+              <div class="item-list">
+                <template x-for="(entry, idx) in categoryEntries()" :key="`${selectedCategory}-${idx}`">
+                  <button type="button" class="item-btn" :class="{ 'is-active': selectedItemIndex === idx }" @click="selectItem(idx)">
+                    <span x-text="displayItemLabel(entry, idx)"></span>
+                  </button>
+                </template>
+              </div>
+              <div class="actions" style="margin-top: 0.6rem;">
+                <button type="button" @click="addItem()">Create</button>
+                <button type="button" @click="duplicateCurrentItem()">Clone</button>
+                <button type="button" @click="removeCurrentItem()">Purge</button>
+              </div>
+            </div>
+          </aside>
 
-            const grid = document.getElementById('menu-grid');
-            Object.keys(lcpData).filter(k => k !== 'manifest').forEach(cat => {
-                const btn = document.createElement('button');
-                btn.innerHTML = `${cat.toUpperCase()} <span style="font-size:0.7em">(${lcpData[cat].length})</span>`;
-                btn.onclick = () => renderList(cat);
-                grid.appendChild(btn);
-            });
-        }
+          <main class="terminal-section editor" role="region" aria-label="Editor">
+            <div class="editor-header">
+              <h3 x-text="categoryDef() ? categoryDef().label : 'Category Node'"></h3>
+              <label class="mode-toggle">
+                <input type="checkbox" x-model="project.settings.advancedMode" @change="markDirty()" />
+                Expert Console
+              </label>
+            </div>
 
-        function renderList(category) {
-            currentView = 'list';
-            currentCategory = category;
-            const list = lcpData[category] || [];
-            
-            let html = `
-                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: var(--border-style); padding-bottom:10px; margin-bottom:20px;">
-                    <h2 style="margin:0">// ${category.toUpperCase()}</h2>
-                    <button style="width:auto; padding: 5px 20px; margin:0;" onclick="renderMainMenu()">BACK</button>
+            <div class="form-grid" x-show="!project.settings.advancedMode">
+              <template x-for="fieldName in beginnerFields()" :key="`field-${fieldName}`">
+                <div class="field">
+                  <label x-text="fieldName"></label>
+                  <template x-if="isJsonField(fieldName)">
+                    <textarea
+                      :value="fieldValue(fieldName)"
+                      @focus="setActiveField(fieldName)"
+                      @input="updateField(fieldName, $event.target.value)"
+                      :placeholder="buildFieldPlaceholder(fieldName)"
+                    ></textarea>
+                  </template>
+                  <template x-if="!isJsonField(fieldName)">
+                    <input
+                      :value="fieldValue(fieldName)"
+                      @focus="setActiveField(fieldName)"
+                      @input="updateField(fieldName, $event.target.value)"
+                      :placeholder="buildFieldPlaceholder(fieldName)"
+                    />
+                  </template>
                 </div>
-                <button onclick="createNewItem('${category}')" style="margin-bottom: 20px;">> CREATE NEW ENTRY</button>
-                <div id="item-list">
-            `;
+              </template>
+            </div>
 
-            if (list.length === 0) {
-                html += `<div style="text-align:center; color: var(--horus-dim); padding: 40px;">[ NO DATA FOUND ]</div>`;
-            } else {
-                list.forEach((item, index) => {
-                    html += `
-                        <div class="list-view-item" onclick="renderEditor('${category}', ${index})">
-                            <span style="font-weight:bold;">${item.name || 'UNNAMED'}</span>
-                            <span style="font-size:0.8em; color:var(--horus-dim); font-family:monospace;">${item.id || 'NO_ID'}</span>
-                        </div>
-                    `;
-                });
-            }
-            html += `</div>`;
-            container.innerHTML = html;
-        }
+            <div class="raw-editor" x-show="project.settings.advancedMode">
+              <label>Raw Blueprint JSON</label>
+              <textarea x-model="rawEditor" @input="markDirty()" style="min-height: 320px;"></textarea>
+              <div class="actions">
+                <button type="button" @click="applyRawEditor()">Commit Raw JSON</button>
+              </div>
+            </div>
+          </main>
 
-        function renderEditor(category, index) {
-            currentView = 'editor';
-            currentItemIndex = index;
-            const item = lcpData[category][index];
+          <aside class="terminal-section helper" role="region" aria-label="Context panel">
+            <h3>Signal Decoder</h3>
+            <p class="subtle" x-show="!activeField">Focus a field to view contextual guidance.</p>
+            <template x-if="activeField">
+              <div>
+                <p><strong x-text="activeField"></strong></p>
+                <p x-text="tooltipFor(activeField)"></p>
+              </div>
+            </template>
+            <div class="section">
+              <h3>Manifest Node</h3>
+              <textarea x-model="manifestRaw" style="min-height: 220px;"></textarea>
+              <div class="actions" style="margin-top: 0.5rem;">
+                <button type="button" @click="applyManifestRaw()">Commit Manifest</button>
+              </div>
+            </div>
+            <template x-if="statusMessage">
+              <div class="status" :class="`status-${statusLevel}`" x-text="statusMessage" role="status" aria-live="polite"></div>
+            </template>
+          </aside>
+        </div>
+      </section>
 
-            // Determine which fields to show
-            const specificFields = FIELD_CONFIG[category] || DEFAULT_CONFIG;
-            const allFields = [...FIELD_CONFIG.common, ...specificFields];
+      <section class="screen" x-screen="validate">
+        <div class="terminal-shell screen-shell" role="region" aria-label="Validation results">
+          <div class="topbar" style="border-bottom: none; padding: 0; margin-bottom: 0.7rem;">
+            <h2 class="screen-title">Validation Rite</h2>
+            <div class="actions">
+              <button type="button" @click="runValidation()">Re-run Rite</button>
+              <button type="button" @click="$changeScreen('editor')">Return to Forge</button>
+            </div>
+          </div>
+          <div class="metrics">
+            <span class="metric">Errors: <strong x-text="validation.counts.errors"></strong></span>
+            <span class="metric">Warnings: <strong x-text="validation.counts.warnings"></strong></span>
+            <span class="metric">Total Issues: <strong x-text="validation.issues.length"></strong></span>
+          </div>
+          <template x-if="validation.issues.length === 0">
+            <p>No validation findings. Export is clear.</p>
+          </template>
+          <template x-for="(issue, idx) in validation.issues" :key="`issue-${idx}`">
+            <div :class="issueClass(issue.severity)">
+              <div><strong x-text="issue.severity.toUpperCase()"></strong> · <span x-text="formatIssueScope(issue.scope)"></span></div>
+              <div x-text="issue.message"></div>
+              <div class="subtle" x-text="issue.path"></div>
+              <div class="actions" style="margin-top: 0.35rem;">
+                <button type="button" @click="jumpToIssue(issue)">Open in Forge</button>
+              </div>
+            </div>
+          </template>
+        </div>
+      </section>
 
-            let formHtml = `
-                <div style="display:flex; justify-content:space-between; align-items:center; background: var(--horus-green); color: black; padding: 10px; margin-bottom: 20px;">
-                    <h3 style="margin:0;">[EDITING: ${category.toUpperCase()}]</h3>
-                    <div style="font-size: 0.8em; font-weight:bold;">${item.id || 'NEW'}</div>
-                </div>
-                <div id="editor-form">
-            `;
+      <section class="screen" x-screen="package">
+        <div class="terminal-shell screen-shell" role="region" aria-label="Archive operations">
+          <h2 class="screen-title">Archive Operations</h2>
+          <div class="two-col section-grid">
+            <div class="terminal-section">
+              <h3>Export Relay</h3>
+              <p class="subtle">Export builds a zipped content pack with the .lcp extension.</p>
+              <div class="actions">
+                <button type="button" @click="runValidation()">Run Rite</button>
+                <button type="button" @click="exportLcp()">Transmit .lcp</button>
+              </div>
+            </div>
+            <div class="terminal-section">
+              <h3>Import Relay</h3>
+              <div class="field">
+                <label>Import Local .lcp / .zip</label>
+                <input type="file" accept=".lcp,.zip" @change="importLocalLcp($event)" />
+              </div>
+              <div class="field">
+                <label>Import from URL</label>
+                <input x-model="urlImportInput" placeholder="https://example.com/pack.lcp" />
+              </div>
+              <div class="actions">
+                <button type="button" @click="importFromUrl()">Ingest URL</button>
+              </div>
+            </div>
+          </div>
+          <div class="terminal-section">
+            <h3>Autosave Cache</h3>
+            <p class="subtle">Autosave is stored in your browser local storage for this origin.</p>
+            <div class="actions">
+              <button type="button" @click="loadAutosaveProject()">Load Cache</button>
+              <button type="button" @click="clearAutosavedState()">Wipe Cache</button>
+            </div>
+          </div>
+          <div class="actions">
+            <button type="button" @click="$changeScreen('editor')">Return to Forge</button>
+          </div>
+        </div>
+      </section>
 
-            // Generate Inputs
-            allFields.forEach(field => {
-                let val = getNestedValue(item, field.key) || "";
-                
-                // Handle objects/arrays for text areas if not empty
-                if (typeof val === 'object') val = JSON.stringify(val);
-
-                formHtml += `<div class="form-group">`;
-                formHtml += `<label>${field.label}</label>`;
-
-                if (field.help) {
-                    formHtml += `<div style="font-size:0.7em; color:var(--horus-dim); margin-bottom:3px;">${field.help}</div>`;
-                }
-
-                if (field.type === 'select') {
-                    formHtml += `<select id="field_${field.key.replace('.', '_')}">`;
-                    field.options.forEach(opt => {
-                        const selected = (val == opt) ? 'selected' : '';
-                        formHtml += `<option value="${opt}" ${selected}>${opt}</option>`;
-                    });
-                    formHtml += `</select>`;
-                } else if (field.type === 'textarea' || field.type === 'textarea_sm') {
-                    const height = field.type === 'textarea_sm' ? '60px' : '150px';
-                    formHtml += `<textarea id="field_${field.key.replace('.', '_')}" style="height:${height}">${val}</textarea>`;
-                } else {
-                    formHtml += `<input type="${field.type}" id="field_${field.key.replace('.', '_')}" value="${val}" ${field.placeholder ? `placeholder="${field.placeholder}"` : ''}>`;
-                }
-                formHtml += `</div>`;
-            });
-
-            formHtml += `</div>`; // Close form div
-
-            // Action Buttons
-            formHtml += `
-                <div style="display:flex; gap: 10px; margin-top: 30px; flex-wrap:wrap;">
-                    <button onclick="saveItem()" style="flex:2;">> SAVE DATA</button>
-                    <button class="delete" onclick="deleteItem()" style="flex:1;">DELETE</button>
-                    <button class="cancel" onclick="renderList('${category}')" style="flex:1;">CANCEL</button>
-                </div>
-            `;
-
-            container.innerHTML = formHtml;
-        }
-
-        function renderManifestEditor() {
-            const m = lcpData.manifest;
-            container.innerHTML = `
-                <div style="border-bottom: var(--border-style); padding-bottom: 10px; margin-bottom: 20px;">
-                    <h2>// MANIFEST EDITOR</h2>
-                </div>
-
-                <div class="form-group">
-                    <label>PACKAGE NAME</label>
-                    <input type="text" id="man-name" value="${m.name || ''}">
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>VERSION</label>
-                        <input type="text" id="man-version" value="${m.version || ''}">
-                    </div>
-                    <div class="form-group">
-                        <label>AUTHOR</label>
-                        <input type="text" id="man-author" value="${m.author || ''}">
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>DESCRIPTION</label>
-                    <textarea id="man-desc" style="height: 100px;">${m.description || ''}</textarea>
-                </div>
-
-                <div style="margin-top: 20px; display:flex; gap:10px;">
-                    <button onclick="saveManifest()">> UPDATE MANIFEST</button>
-                    <button class="cancel" onclick="renderMainMenu()">CANCEL</button>
-                </div>
-            `;
-        }
-
-        // --- LOGIC ---
-
-        function createNewItem(category) {
-            const id = `new_${category.slice(0,3)}_${Math.floor(Math.random()*1000)}`;
-            const newItem = {
-                id: id,
-                name: "New Item",
-                source: "My Homebrew",
-                description: "Description goes here.",
-                stats: {} // init stats obj for frames
-            };
-            lcpData[category].push(newItem);
-            renderEditor(category, lcpData[category].length - 1);
-        }
-
-        function saveItem() {
-            const specificFields = FIELD_CONFIG[currentCategory] || DEFAULT_CONFIG;
-            const allFields = [...FIELD_CONFIG.common, ...specificFields];
-            
-            // Get original item to preserve hidden fields
-            let item = lcpData[currentCategory][currentItemIndex];
-
-            try {
-                allFields.forEach(field => {
-                    const domId = `field_${field.key.replace('.', '_')}`;
-                    const el = document.getElementById(domId);
-                    if (!el) return;
-
-                    let value = el.value;
-
-                    // Type Conversion
-                    if (field.type === 'number') value = parseFloat(value) || 0;
-                    
-                    // JSON parsing for complex fields (arrays/objects disguised as textareas)
-                    if (field.key === 'traits' || field.key === 'mounts' || field.key === 'range' || field.key === 'damage' || field.key === 'ranks') {
-                        if(value.trim() !== "") {
-                            try {
-                                value = JSON.parse(value.replace(/'/g, '"')); // Allow single quotes for ease, convert to double
-                            } catch (e) {
-                                // If parse fails, keep string but warn? For now, we allow it to be a string to avoid crashing, 
-                                // but LCP expects arrays. We will just save what they typed.
-                                console.warn("JSON Parse warning for " + field.key);
-                            }
-                        }
-                    }
-
-                    setNestedValue(item, field.key, value);
-                });
-
-                setStatus("ITEM SAVED.");
-                renderList(currentCategory);
-            } catch (e) {
-                alert("ERROR SAVING: " + e.message);
-            }
-        }
-
-        function deleteItem() {
-            if(confirm("CONFIRM DELETION?")) {
-                lcpData[currentCategory].splice(currentItemIndex, 1);
-                renderList(currentCategory);
-            }
-        }
-
-        function saveManifest() {
-            lcpData.manifest.name = document.getElementById('man-name').value;
-            lcpData.manifest.version = document.getElementById('man-version').value;
-            lcpData.manifest.author = document.getElementById('man-author').value;
-            lcpData.manifest.description = document.getElementById('man-desc').value;
-            updateSidebar();
-            setStatus("MANIFEST UPDATED.");
-            renderMainMenu();
-        }
-
-        // --- UTILS ---
-
-        function getNestedValue(obj, path) {
-            return path.split('.').reduce((acc, part) => acc && acc[part], obj);
-        }
-
-        function setNestedValue(obj, path, value) {
-            const keys = path.split('.');
-            let current = obj;
-            for (let i = 0; i < keys.length - 1; i++) {
-                if (!current[keys[i]]) current[keys[i]] = {};
-                current = current[keys[i]];
-            }
-            current[keys[keys.length - 1]] = value;
-        }
-
-        function updateSidebar() {
-            const nameEl = document.getElementById('project-name');
-            if(nameEl) nameEl.innerText = (lcpData.manifest.name || "UNTITLED").toUpperCase();
-            
-            const authEl = document.getElementById('project-author');
-            if(authEl) authEl.innerText = (lcpData.manifest.author || "UNKNOWN").toUpperCase();
-
-            const verEl = document.getElementById('project-version');
-            if(verEl) verEl.innerText = lcpData.manifest.version;
-        }
-
-        function setStatus(msg) {
-            const el = document.getElementById('status-msg');
-            el.innerText = msg;
-            el.classList.add('fabricating');
-            setTimeout(() => el.classList.remove('fabricating'), 1000);
-        }
-
-        // --- FILE IO ---
-
-        function triggerLoad() { document.getElementById('file-upload').click(); }
-
-        function handleFileLoad(input) {
-            const file = input.files[0];
-            if (!file) return;
-            setStatus("DECRYPTING LCP...");
-            
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                JSZip.loadAsync(e.target.result).then(function(zip) {
-                    lcpData = { manifest: {}, frames:[], weapons:[], systems:[], mods:[], talents:[], actions:[], backgrounds:[], core_bonuses:[], environments:[], factions:[], glossary:[], info:[], manufacturers:[], pilot_gear:[], reserves:[], rules:[], sitreps:[], skills:[], statuses:[], tables:[], tags:[] };
-                    const promises = [];
-
-                    zip.forEach(function (relativePath, zipEntry) {
-                        if (zipEntry.name.endsWith(".json")) {
-                            promises.push(zipEntry.async("string").then(content => {
-                                try {
-                                    const json = JSON.parse(content);
-                                    if (zipEntry.name.includes("lcp_manifest")) {
-                                        lcpData.manifest = json;
-                                    } else {
-                                        let key = zipEntry.name.replace('.json', '').split('/').pop();
-                                        if (Array.isArray(json)) lcpData[key] = json;
-                                    }
-                                } catch(err) { console.error("Skip " + zipEntry.name); }
-                            }));
-                        }
-                    });
-
-                    Promise.all(promises).then(() => {
-                        updateSidebar();
-                        renderMainMenu();
-                        setStatus("DATA LOADED.");
-                    });
-                });
-            };
-            reader.readAsArrayBuffer(file);
-        }
-
-        function saveLCP() {
-            setStatus("COMPRESSING...");
-            const zip = new JSZip();
-            zip.file("lcp_manifest.json", JSON.stringify(lcpData.manifest, null, 4));
-
-            Object.keys(lcpData).forEach(key => {
-                if (key !== 'manifest' && Array.isArray(lcpData[key]) && lcpData[key].length > 0) {
-                    zip.file(`${key}.json`, JSON.stringify(lcpData[key], null, 4));
-                }
-            });
-
-            zip.generateAsync({type:"blob"}).then(function(content) {
-                const a = document.createElement("a");
-                a.href = URL.createObjectURL(content);
-                const safeName = (lcpData.manifest.name || "lcp").replace(/[^a-z0-9]/gi, '_').toLowerCase();
-                a.download = `${safeName}.lcp`;
-                a.click();
-                setStatus("EXPORT COMPLETE.");
-            });
-        }
-
-        init();
-    </script>
-</body>
+      <section class="screen" x-screen="settings">
+        <div class="terminal-shell screen-shell" role="region" aria-label="Settings">
+          <h2 class="screen-title">Signal Settings</h2>
+          <div class="two-col section-grid">
+            <div class="terminal-section">
+              <h3>Visual Protocols</h3>
+              <label class="mode-toggle">
+                <input type="checkbox" x-model="project.settings.effectsEnabled" @change="markDirty()" />
+                Enable distortion effects
+              </label>
+              <label class="mode-toggle">
+                <input type="checkbox" x-model="project.settings.reducedMotion" @change="markDirty()" />
+                Reduced motion mode
+              </label>
+              <label class="mode-toggle">
+                <input type="checkbox" x-model="project.settings.autoValidate" @change="markDirty()" />
+                Auto-validate on edit
+              </label>
+            </div>
+            <div class="terminal-section">
+              <h3>Failsafes</h3>
+              <p class="subtle">Use reset with caution. This clears the current in-memory project.</p>
+              <div class="actions">
+                <button type="button" @click="resetToEmptyProject()">Purge Current Blueprint</button>
+              </div>
+            </div>
+          </div>
+          <div class="actions">
+            <button type="button" @click="$changeScreen('editor')">Return to Forge</button>
+          </div>
+        </div>
+      </section>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
 </html>
